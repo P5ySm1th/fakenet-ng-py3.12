@@ -5,7 +5,7 @@ from configparser import ConfigParser
 
 import os
 import sys
-import imp
+import importlib.util
 
 import threading
 import socketserver
@@ -83,7 +83,10 @@ class CustomResponse(object):
         self.handler = None
         pymod_path = qualify_file_path(conf.get('httpdynamic'), configroot)
         if pymod_path:
-            pymod = imp.load_source('cr_' + self.name, pymod_path)
+            # pymod = imp.load_source('cr_' + self.name, pymod_path)
+            spec = importlib.util.spec_from_file_location(f'cr_{self.name}', pymod_path)
+            pymod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(pymod)
             funcname = 'HandleHttp'
             funcname_legacy = 'HandleRequest'
             if hasattr(pymod, funcname):
@@ -206,8 +209,11 @@ class HTTPListener(object):
             certfile_path = ListenerBase.abs_config_path(certfile_path)
             if certfile_path is None:
                 raise RuntimeError('Could not locate %s' % (certfile_path))
-
-            self.server.socket = ssl.wrap_socket(self.server.socket, keyfile=keyfile_path, certfile=certfile_path, server_side=True, ciphers='RSA')
+            
+            context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            context.load_cert_chain(certfile=certfile_path, keyfile=keyfile_path)
+            self.server.socket = context.wrap_socket(self.server.socket, server_side=True)
+            # self.server.socket = ssl.SSLContext.wrap_socket(self.server.socket, keyfile=keyfile_path, certfile=certfile_path, server_side=True, ciphers='RSA')
 
         self.server.custom_responses = []
         custom = self.config.get('custom')

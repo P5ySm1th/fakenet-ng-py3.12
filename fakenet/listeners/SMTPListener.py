@@ -76,8 +76,12 @@ class SMTPListener(object):
             if certfile_path is None:
                 self.logger.error('Could not locate %s', certfile_path)
                 sys.exit(1)
-
-            self.server.socket = ssl.wrap_socket(self.server.socket, keyfile='privkey.pem', certfile='server.pem', server_side=True, ciphers='RSA')
+                
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(certfile='server.pem', keyfile='privkey.pem')
+            context.set_ciphers('RSA')
+            self.server.socket = context.wrap_socket(self.server.socket, server_side=True)
+            # self.server.socket = ssl.SSLContext.wrap_socket(self.server.socket, keyfile='privkey.pem', certfile='server.pem', server_side=True, ciphers='RSA')
 
         self.server.logger = self.logger
         self.server.config = self.config

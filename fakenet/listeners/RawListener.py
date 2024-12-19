@@ -5,7 +5,7 @@ from configparser import ConfigParser
 
 import os
 import sys
-import imp
+import importlib.util
 import base64
 
 import threading
@@ -72,7 +72,10 @@ class RawCustomResponse(object):
 
         pymodpath = qualify_file_path(conf.get(spec_dyn), configroot)
         if pymodpath:
-            pymod = imp.load_source('cr_raw_' + self.name, pymodpath)
+            # pymod = imp.load_source('cr_raw_' + self.name, pymodpath)
+            spec = importlib.util.spec_from_file_location(f'cr_raw_{self.name}', pymodpath)
+            pymod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(pymod)
             funcname = 'Handle%s' % (proto.capitalize())
             if not hasattr(pymod, funcname):
                 raise ValueError('Loaded %s module %s has no function %s' %
@@ -149,8 +152,11 @@ class RawListener(object):
             if certfile_path is None:
                 self.logger.error('Could not locate %s', certfile_path)
                 sys.exit(1)
-
-            self.server.socket = ssl.wrap_socket(self.server.socket, keyfile=keyfile_path, certfile=certfile_path, server_side=True, ciphers='RSA')
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(certfile=certfile_path, keyfile=keyfile_path)
+            context.set_ciphers('RSA')
+            self.server.socket = context.wrap_socket(self.server.socket, server_side=True)
+            # self.server.socket = ssl.SSLContext.wrap_socket(self.server.socket, keyfile=keyfile_path, certfile=certfile_path, server_side=True, ciphers='RSA')
 
         self.server.custom_response = None
         custom = self.config.get('custom')

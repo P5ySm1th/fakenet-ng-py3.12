@@ -222,13 +222,14 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             if ssl_detector.looks_like_ssl(data):
                 is_ssl_encrypted = 'Yes'
                 self.server.logger.debug('SSL detected')
-                ssl_remote_sock = ssl.wrap_socket(
-                        remote_sock, 
-                        server_side=True, 
-                        do_handshake_on_connect=True,
-                        certfile=certfile_path, 
-                        ssl_version=ssl_version,
-                        keyfile=keyfile_path )
+                context = ssl.SSLContext(ssl_version)
+                context.load_cert_chain(certfile=certfile_path, keyfile=keyfile_path)
+                
+                ssl_remote_sock = context.wrap_socket(
+                    remote_sock,
+                    server_side=True,
+                    do_handshake_on_connect=True
+                )
                 data = ssl_remote_sock.recv(BUF_SZ)
             
             orig_src_ip = self.client_address[0]
